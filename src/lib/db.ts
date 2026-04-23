@@ -6,7 +6,8 @@ const STORE = "dogPhotos";
 
 export interface DogPhoto {
   id: number;
-  blob: Blob;
+  blob: Blob;           // original photo
+  processedBlob?: Blob; // background-removed PNG (set after processing)
   name: string;
   addedAt: number;
 }
@@ -19,15 +20,27 @@ function getDB(): Promise<IDBPDatabase> {
   });
 }
 
-export async function saveDogPhotos(files: File[]): Promise<void> {
+export async function saveDogPhotos(files: File[]): Promise<number[]> {
   const db = await getDB();
   const tx = db.transaction(STORE, "readwrite");
-  await Promise.all(
+  const ids = await Promise.all(
     files.map((f) =>
       tx.store.add({ blob: f, name: f.name, addedAt: Date.now() })
     )
   );
   await tx.done;
+  return ids as number[];
+}
+
+export async function updateDogPhotoProcessed(
+  id: number,
+  processedBlob: Blob
+): Promise<void> {
+  const db = await getDB();
+  const existing = await db.get(STORE, id);
+  if (existing) {
+    await db.put(STORE, { ...existing, processedBlob });
+  }
 }
 
 export async function getDogPhotos(): Promise<DogPhoto[]> {

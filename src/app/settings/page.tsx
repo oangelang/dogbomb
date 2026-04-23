@@ -1,13 +1,15 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { getDogPhotos, deleteDogPhoto, saveDogPhotos, type DogPhoto } from "@/lib/db";
+import { getDogPhotos, deleteDogPhoto, saveDogPhotos, updateDogPhotoProcessed, type DogPhoto } from "@/lib/db";
+import { removeDogBackground } from "@/lib/bgRemoval";
 import Link from "next/link";
 
 export default function SettingsPage() {
   const [photos, setPhotos] = useState<DogPhoto[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [processingLabel, setProcessingLabel] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
   async function load() {
@@ -31,10 +33,18 @@ export default function SettingsPage() {
     if (!files.length) return;
     setSaving(true);
     try {
-      await saveDogPhotos(files);
-      await load();
+      const ids = await saveDogPhotos(files);
+      await load(); // show originals right away
+      for (let i = 0; i < files.length; i++) {
+        setProcessingLabel(`Cutting out dog ${i + 1}/${files.length}…`);
+        const processedBlob = await removeDogBackground(files[i]);
+        await updateDogPhotoProcessed(ids[i], processedBlob);
+      }
+      setProcessingLabel("");
+      await load(); // refresh with processed blobs
     } finally {
       setSaving(false);
+      setProcessingLabel("");
       if (inputRef.current) inputRef.current.value = "";
     }
   }
@@ -101,7 +111,7 @@ export default function SettingsPage() {
           disabled={saving}
           className="w-full py-4 rounded-2xl bg-white text-slate-900 font-semibold text-base hover:bg-slate-100 transition-colors disabled:opacity-50"
         >
-          {saving ? "Saving..." : "Add more dog photos"}
+          {processingLabel || (saving ? "Saving…" : "Add more dog photos")}
         </button>
       </div>
     </div>

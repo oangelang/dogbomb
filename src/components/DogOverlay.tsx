@@ -4,9 +4,9 @@ import { useEffect, useRef, useState } from "react";
 import type { PlacementParams } from "@/lib/placement";
 
 interface Props {
-  dogBlob: Blob;
+  dogBlob: Blob;          // original or background-removed PNG
   placement: PlacementParams;
-  animationKey: number; // increment to re-trigger entrance animation
+  animationKey: number;   // increment to re-trigger entrance animation
 }
 
 export default function DogOverlay({ dogBlob, placement, animationKey }: Props) {
@@ -25,25 +25,27 @@ export default function DogOverlay({ dogBlob, placement, animationKey }: Props) 
 
   if (!src) return null;
 
+  const hasTransparency = dogBlob.type === "image/png";
+
   return (
     <img
       key={animationKey}
       src={src}
       alt="Dog photobomb"
-      className="dog-overlay"
       style={{
         position: "absolute",
         left: `${placement.xFraction * 100}%`,
         top: `${placement.yFraction * 100}%`,
         width: `${placement.sizeFraction * 100}%`,
-        aspectRatio: "1",
-        objectFit: "cover",
-        borderRadius: "50%",
+        height: "auto",
+        objectFit: "contain",
+        // Circular clip only as fallback for unprocessed originals
+        borderRadius: hasTransparency ? "0" : "50%",
         transform: `rotate(${placement.rotateDeg}deg)`,
-        filter: "drop-shadow(0 4px 16px rgba(0,0,0,0.7))",
+        transformOrigin: "center center",
+        filter: "drop-shadow(0 4px 14px rgba(0,0,0,0.65))",
         pointerEvents: "none",
         animation: "dogBomb 0.35s cubic-bezier(0.34,1.56,0.64,1) both",
-        border: "3px solid rgba(255,255,255,0.85)",
         zIndex: 10,
       }}
     />

@@ -83,7 +83,7 @@ export default function Viewfinder({ dogPhotos, onCapture, onOpenSettings }: Pro
         // We'll re-use captureWithDog logic but need a video-like object
         // Instead, just composite manually
         const dogImg = new Image();
-        const dogUrl = URL.createObjectURL(dog.blob);
+        const dogUrl = URL.createObjectURL(dog.processedBlob ?? dog.blob);
         await new Promise<void>((res, rej) => {
           dogImg.onload = () => res();
           dogImg.onerror = rej;
@@ -115,7 +115,7 @@ export default function Viewfinder({ dogPhotos, onCapture, onOpenSettings }: Pro
           )
         );
       } else if (videoRef.current) {
-        blob = await captureWithDog(videoRef.current, dog.blob, placement);
+        blob = await captureWithDog(videoRef.current, dog.processedBlob ?? dog.blob, placement);
       } else {
         return;
       }
@@ -188,7 +188,7 @@ export default function Viewfinder({ dogPhotos, onCapture, onOpenSettings }: Pro
       {/* Dog overlay */}
       {currentDog && (
         <DogOverlay
-          dogBlob={currentDog.blob}
+          dogBlob={currentDog.processedBlob ?? currentDog.blob}
           placement={placement}
           animationKey={animKey}
         />
