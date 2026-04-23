@@ -1,18 +1,28 @@
 import type { PlacementParams } from "./placement";
 
+type ImageSource = HTMLVideoElement | HTMLImageElement;
+
+function getSourceSize(source: ImageSource): { w: number; h: number } {
+  if (source instanceof HTMLVideoElement) {
+    return { w: source.videoWidth, h: source.videoHeight };
+  }
+  return { w: source.naturalWidth, h: source.naturalHeight };
+}
+
 export async function captureWithDog(
-  video: HTMLVideoElement,
-  dogBlob: Blob, // original JPEG or background-removed PNG
+  source: ImageSource,
+  dogBlob: Blob,
   placement: PlacementParams
 ): Promise<Blob> {
+  const { w, h } = getSourceSize(source);
   const canvas = document.createElement("canvas");
-  canvas.width = video.videoWidth;
-  canvas.height = video.videoHeight;
+  canvas.width = w;
+  canvas.height = h;
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("Could not get canvas context");
 
-  // 1. Draw the video frame
-  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+  // 1. Draw the source (video frame or image)
+  ctx.drawImage(source, 0, 0, w, h);
 
   // 2. Load dog image
   const dogImg = new Image();
@@ -24,37 +34,30 @@ export async function captureWithDog(
   });
   URL.revokeObjectURL(dogUrl);
 
-  // 3. Compute pixel bounds from placement fractions
-  const dogW = placement.sizeFraction * canvas.width;
-  // Maintain the natural aspect ratio of the dog image
+  // 3. Compute pixel bounds — maintain natural aspect ratio of dog image
+  const dogW = placement.sizeFraction * w;
   const dogH = (dogW / dogImg.naturalWidth) * dogImg.naturalHeight;
-  const dogX = placement.xFraction * canvas.width;
-  const dogY = placement.yFraction * canvas.height;
+  const dogX = placement.xFraction * w;
+  const dogY = placement.yFraction * h;
 
-  // 4. Draw dog with rotation around its center
+  // 4. Draw dog with rotation around center
   ctx.save();
   ctx.translate(dogX + dogW / 2, dogY + dogH / 2);
   ctx.rotate((placement.rotateDeg * Math.PI) / 180);
 
-  const hasTransparency = dogBlob.type === "image/png";
+  ctx.shadowColor = "rgba(0,0,0,0.55)";
+  ctx.shadowBlur = Math.round(dogW * 0.07);
+  ctx.shadowOffsetY = Math.round(dogW * 0.04);
 
+  const hasTransparency = dogBlob.type === "image/png";
   if (!hasTransparency) {
-    // Fallback for unprocessed originals: circular clip + drop shadow
+    // Fallback for unprocessed originals: circular clip
     ctx.beginPath();
     ctx.arc(0, 0, dogW / 2, 0, Math.PI * 2);
     ctx.clip();
-    ctx.shadowColor = "rgba(0,0,0,0.55)";
-    ctx.shadowBlur = Math.round(dogW * 0.07);
-    ctx.shadowOffsetY = Math.round(dogW * 0.04);
-    ctx.drawImage(dogImg, -dogW / 2, -dogH / 2, dogW, dogH);
-  } else {
-    // Background-removed PNG: draw naturally — transparency handles the cutout shape
-    ctx.shadowColor = "rgba(0,0,0,0.55)";
-    ctx.shadowBlur = Math.round(dogW * 0.07);
-    ctx.shadowOffsetY = Math.round(dogW * 0.04);
-    ctx.drawImage(dogImg, -dogW / 2, -dogH / 2, dogW, dogH);
   }
 
+  ctx.drawImage(dogImg, -dogW / 2, -dogH / 2, dogW, dogH);
   ctx.restore();
 
   // 5. Export as JPEG

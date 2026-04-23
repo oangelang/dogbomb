@@ -27,6 +27,13 @@ html, body {
   }
 }
 
+/* Hint fade-out */
+@keyframes fadeOut {
+  0%   { opacity: 1; }
+  60%  { opacity: 1; }
+  100% { opacity: 0; }
+}
+
 /* iOS safe area utilities */
 .pt-safe {
   padding-top: env(safe-area-inset-top);
